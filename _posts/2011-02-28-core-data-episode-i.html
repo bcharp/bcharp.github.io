@@ -1,0 +1,340 @@
+---
+layout: post
+title: Core Data Episode I
+tags: Core Data
+categories: objc
+---
+
+Infos : CoreData est ici utilisé sur de l'iOS, bien que ça soit quasiment identique avec du Mac Os, quelques petits détails notamment dans les projets par défauts et certaines possibilités de glisser déposer, divergent.
+
+J'ai décidé d'utiliser le terme d'épisode essentiellement parce que cela me permet de différencier les articles qui sont plus courts et sur un point précis, d'une suite d'articles plus longue et plus large.
+
+On va même faire quelques chapitres :
+
+<strong>Chapitre I Qu'est-ce que CoreData ?</strong>
+<strong> Chapitre II Mise en place.</strong>
+<strong> Chapitre III In the code</strong>
+<strong> Chapitre IV Insert</strong>
+<strong> Chapitre V Update</strong>
+<strong> Chapitre V Delete</strong>
+<strong> Chapitre VI Trucs et Astuces</strong>
+<h2 style="text-align: center;"><strong>Chapitre I Qu'est-ce que Core Data ?</strong></h2>
+Core Data est un framework pour gérer des objets et leur persistance. En clair, Core Data est une surcouche à de la persistance de donnée(une base SQLite par exemple ou du xml) qui va permettre d'avoir l'impression de manipuler uniquement des objets alors que l'on travaille avec une base de donnée ou que l'on manipule des fichiers.
+
+&nbsp;
+<h2 style="text-align: center;"><strong>Chapitre II Mise en place.</strong></h2>
+<strong> </strong>
+
+Pour commencer on va créer un projet de type navigation-based en cochant la case "use core data for storage", ça va permettre d'avoir un projet d'exemple configuré avec tout ce qui est nécessaire, voire même un peu trop.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-16.26.14.png"><img class="size-medium wp-image-71 aligncenter" title="Capture d’écran 2011-02-27 à 16.26.14" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-16.26.14-300x249.png" alt="" width="400" height="329" /></a></p>
+Ce qui est particulièrement intéressant ce sont les 4 méthodes créés dans l'appDelegate et le fichier xcdatamodel dans les ressources.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.15.png"><img class="size-medium wp-image-72 aligncenter" title="Capture d’écran 2011-02-27 à 19.23.15" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.15-300x187.png" alt="" width="400" height="249" /></a></p>
+
+<pre lang="objc">@property (nonatomic, retain, readonly) NSManagedObjectContext *managedObjectContext;
+
+@property (nonatomic, retain, readonly) NSManagedObjectModel *managedObjectModel;
+
+@property (nonatomic, retain, readonly) NSPersistentStoreCoordinator *persistentStoreCoordinator;
+- (NSURL *)applicationDocumentsDirectory;</pre>
+En général sur un nouveau projet je supprime l'essentiel des méthodes pour garder uniquement ce code là :
+<pre lang="objc">//  RootViewController.m
+//  coreDataNavigationDemoBlog
+//
+//  Created by boris charpentier on 27/02/11.
+//  Copyright 2011 bcharp. All rights reserved.
+//
+
+#import "RootViewController.h"
+
+@implementation RootViewController
+
+@synthesize managedObjectContext=managedObjectContext_;
+
+#pragma mark -
+#pragma mark View lifecycle
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+	self.title = @"Demo";
+}
+
+// Implement viewWillAppear: to do additional setup before the view is presented.
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+}
+
+#pragma mark -
+#pragma mark Table view data source
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+
+    return 1;
+}
+
+// Customize the appearance of table view cells.
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+
+    static NSString *CellIdentifier = @"Cell";
+
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
+    if (cell == nil) {
+        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier] autorelease];
+    }
+
+    // Configure the cell.
+    cell.textLabel.text = @"test";
+
+    return cell;
+}
+
+#pragma mark -
+#pragma mark Table view delegate
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+
+}
+
+#pragma mark -
+#pragma mark Memory management
+
+- (void)didReceiveMemoryWarning {
+    // Releases the view if it doesn't have a superview.
+    [super didReceiveMemoryWarning];
+
+    // Relinquish ownership any cached data, images, etc that aren't in use.
+}
+
+- (void)viewDidUnload {
+    // Relinquish ownership of anything that can be recreated in viewDidLoad or on demand.
+    // For example: self.myOutlet = nil;
+}
+
+- (void)dealloc {
+    [super dealloc];
+}
+
+@end</pre>
+Et dans le xcdatamodel, supprimez l'entity event.
+À ce moment là le projet compile mais ne s'exécute plus et crash avec une erreur au lancement (si ça n'arrive pas, pas d'inquiétude, un jour ou l'autre ça arrivera) :
+<pre lang="objc">	Unresolved error Error Domain=NSCocoaErrorDomain Code=134100 "The operation couldn’t be completed. (Cocoa error 134100.)" UserInfo=0x4d5c8c0 {metadata={type = immutable dict, count = 7,
+entries =&gt;
+	2 : {contents = "NSStoreModelVersionIdentifiers"} = {type = immutable, count = 0, values = ()}
+	4 : {contents = "NSPersistenceFrameworkVersion"} = {value = +320, type = kCFNumberSInt64Type}
+	6 : {contents = "NSStoreModelVersionHashes"} = {type = immutable dict, count = 2,
+entries =&gt;
+	0 : {contents = "Entity"} = {length = 32, capacity = 32, bytes = 0x538176c9190571ceaadf7ce8a3bbcdc3 ... 541852bdec6f698e}
+	2 : {contents = "User"} = {length = 32, capacity = 32, bytes = 0x1b2d5553d2a07ff4eff4408b89db62fb ... e8b5dda4ee89c1d2}
+}
+
+	7 : {contents = "NSStoreUUID"} = {contents = "A097AE90-587F-4E64-AF42-B4160288471D"}
+	8 : {contents = "NSStoreType"} = {contents = "SQLite"}
+	9 : {contents = "NSStoreModelVersionHashesVersion"} = {value = +3, type = kCFNumberSInt32Type}
+	10 : {contents = "_NSAutoVacuumLevel"} = {contents = "2"}
+}
+, reason=The model used to open the store is incompatible with the one used to create the store}, {
+    metadata =     {
+        NSPersistenceFrameworkVersion = 320;
+        NSStoreModelVersionHashes =         {
+            Entity = &lt;538176c9 190571ce aadf7ce8 a3bbcdc3 9cf8b090 54baaa53 541852bd ec6f698e&gt;;
+            User = &lt;1b2d5553 d2a07ff4 eff4408b 89db62fb 8a2be921 fad3002c e8b5dda4 ee89c1d2&gt;;
+        };
+        NSStoreModelVersionHashesVersion = 3;
+        NSStoreModelVersionIdentifiers =         (
+        );
+        NSStoreType = SQLite;
+        NSStoreUUID = "A097AE90-587F-4E64-AF42-B4160288471D";
+        "_NSAutoVacuumLevel" = 2;
+    };
+
+    reason = "The model used to open the store is incompatible with the one used to create the store";
+}</pre>
+Le xcdatamodel est le fichier qui représente le modèle de donnée, et une modification de ce modèle après l'installation de l'application (et la création de la base associée) fait que la structure de la base et le modèle de donnée ne correspondent plus. 	Plus exactement le persistent store a été créé avec un ancien NSManagedObjectModel qui est désormais différent de celui chargé au lancement de l'application.
+
+Pour prévenir une erreur qui risquerait fatalement d'arriver, l'appli crashe au démarrage (l'effet démo veut que dans cet exemple précis ce n'est pas arrivé, c'est cependant une erreur fréquente et récurrente qui n'est pas très compréhensible la première fois qu'on la voit).
+
+En développement la solution basique consiste à supprimer l'app sur le simulateur ou le device et à la réinstaller (une autre solution dans la dernière partie). Il existe aussi des moyens de versioning et des paramètres qui peuvent permettre de faire comprendre au persistent store que le modèle a changé et surtout de quelle manière (plus sur le sujet dans un autre épisode).
+
+L'utilisation basique d'un fichier xcdatamodel est relativement simple, clic droit, add entity, on créé une nouvelle entité, c'est à dire un objet persistant, en terme SQL on pourrait comparer ça à une table.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.24.png"><img class="size-medium wp-image-75 aligncenter" title="Capture d’écran 2011-02-27 à 19.23.24" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.24-300x172.png" alt="" width="400" height="229" /></a></p>
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.41.png"><img class="size-medium wp-image-76 aligncenter" title="Capture d’écran 2011-02-27 à 19.23.41" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.41-300x133.png" alt="" width="400" height="177" /></a></p>
+On peut ensuite ajouter des propriétés à l'objet, toujours pour faire un parallèle en SQL on parlerait de champs.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.49.png"><img class="size-medium wp-image-77 aligncenter" title="Capture d’écran 2011-02-27 à 19.23.49" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.23.49-300x174.png" alt="" width="400" height="220" /></a></p>
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.04.png"><img class="size-medium wp-image-78 aligncenter" title="Capture d’écran 2011-02-27 à 19.24.04" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.04-300x175.png" alt="" width="400" height="220" /></a></p>
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.22.png"><img class="size-medium wp-image-79 aligncenter" title="Capture d’écran 2011-02-27 à 19.24.22" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.22-300x187.png" alt="" width="400" height="250" /></a></p>
+Pour faire simple un objet User, avec un nom et un prénom.
+
+&nbsp;
+
+Un fois fait, on sélectionne notre entité, on va dans file-&gt;"new file" et on sélectionne un nouveau type de fichier managed object.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.28.png"><img class="size-medium wp-image-80 aligncenter" title="Capture d’écran 2011-02-27 à 19.24.28" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.28-289x300.png" alt="" width="400" height="395" /></a></p>
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.40.png"><img class="size-medium wp-image-81 aligncenter" title="Capture d’écran 2011-02-27 à 19.24.40" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.40-300x249.png" alt="" width="400" height="332" /></a></p>
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.46.png"><img class="size-medium wp-image-82 aligncenter" title="Capture d’écran 2011-02-27 à 19.24.46" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.24.46-300x249.png" alt="" width="400" height="332" /></a></p>
+On sélectionne notre objet dans la liste et on se retrouve avec un .h et .m qui représente notre objet.
+<p style="text-align: center;"><a href="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.25.12.png"><img class="size-medium wp-image-83 aligncenter" title="Capture d’écran 2011-02-27 à 19.25.12" src="http://78.47.174.217/blog/wp-content/uploads/2011/02/Capture-d’écran-2011-02-27-à-19.25.12-300x255.png" alt="" width="400" height="335" /></a></p>
+
+<h2 style="text-align: center;"><strong>Chapitre III In the code</strong></h2>
+<strong> </strong>
+
+<strong> </strong> Petit retour sur notre fichier appDelegate et ses 4 méthodes générés.
+<pre lang="objc">  - (NSURL *)applicationDocumentsDirectory</pre>
+Retourne le chemin url vers les documents de l'application(dossier où, détail important, l'application a le droit d'écrire), notamment pour savoir où créer et stocker la base SQLite.
+<pre lang="objc">- (NSPersistentStoreCoordinator *)persistentStoreCoordinator</pre>
+Retourne un persistent store coordinator, objet qui associe un type de store à un model(un NSManagedObjetModel),il fait le lien entre le context et la base.
+<pre lang="objc">- (NSManagedObjectModel *)managedObjectModel</pre>
+Retourne le modèle chargé depuis le fichier xcdatamodel.
+<pre lang="objc">- (NSManagedObjectContext *)managedObjectContext</pre>
+Le context, va être l'ardoise, le plateau de jeux, la table de billard, pour faire le parallèle SQL on pourrait le voir comme une instance de base de donnée.
+
+On va maintenant voir comment instancier un objet User. C'est pas si simple...
+
+On doit obligatoirement récupérer un context pour créer notre objet, sans plateau de jeux, les pions ne servent pas à grand chose.
+
+On peut utiliser directement celui de l'appDelegate, ou en créer un nouveau grâce au persistent store coordinator.
+
+S'il existe déjà un NSManagedObjectContext et une méthode pour le récupérer pourquoi vouloir le recréer ?
+
+Une raison simple, NSManagedObjectContext n'est pas thread safe, si on veut utiliser core data avec grand central dispatch, par exemple, pour faire un import de donnée long en arrière plan, sans freezer l'UI, il faudra créer un nouveau context dans le thread, (plus sur le sujet dans l'épisode 4).
+
+Premièrement récupérer un context :
+<pre lang="objc">//on peut faire un cast pour éviter un warning du style 'managedObjectContext not find in protocol'
+	NSManagedObjectContext *context = [[[UIApplication sharedApplication] delegate] managedObjectContext];
+	//ou en créer un nouveau
+	NSPersistentStoreCoordinator *store = [[[UIApplication sharedApplication] delegate] persistentStoreCoordinator];
+	NSManagedObjectContext *otherContext = [[NSManagedObjectContext alloc] init];
+	[otherContext setPersistentStoreCoordinator:store];</pre>
+Ensuite il va falloir un NSEntityDescription, pour définir quel objet du context on veut créer.
+<pre lang="objc">NSEntityDescription *entity = [NSEntityDescription entityForName:@"User" inManagedObjectContext:context];</pre>
+Enfin, on a tout les outils pour créer le NSManagedObjet :
+<pre lang="objc">NSManagedObjectContext *context = [[[UIApplication sharedApplication] delegate] managedObjectContext];
+
+	NSEntityDescription *entity = [NSEntityDescription entityForName:@"User" inManagedObjectContext:context];
+
+	User *user = [[User alloc] initWithEntity:entity insertIntoManagedObjectContext:context];
+	//ou
+	//User *user = [[User alloc] initWithEntity:entity insertIntoManagedObjectContext:nil];</pre>
+On peut choisir de passer un context à insertIntoManagedObjectContext ou de passer nil. Si on passe un context l'objet sera inséré dans ce context sinon il faudra explicitement l'ajouter.
+
+&nbsp;
+<h2 style="text-align: center;"><strong>CHAPITRE IV Insert</strong></h2>
+Comme précisé ci dessus, à l'initiallisation d'un NSManagedObject on peut lui spécifier qu'il sera inséré dans un context.
+
+S'il n'est pas explicitement ajouté à un context on utilise la méthode insertObject de NSManagedObjectContext pour l'ajouter manuellement.
+
+À partir de sa création c'est un objet comme les autres, on utilise ses property pour setter différentes valeurs.
+
+Et il ne manque plus qu'un save pour l'enregistrer dans le persistent store(la base)tant que ce n'est pas fait l'objet reste local au context. En SQL on parlerait de commit.
+
+&nbsp;
+<pre lang="objc">User *user = [[User alloc] initWithEntity:entity insertIntoManagedObjectContext:context];
+	//ou
+	//User *user = [[User alloc] initWithEntity:entity insertIntoManagedObjectContext:nil];
+
+	user.nom = @"john";
+	user.prenom = @"Doe";
+
+	//si nil : [context insertObject:user];
+
+	NSError *error;
+	[context save:&error];</pre>
+&nbsp;
+<h2 style="text-align: center;"><strong>Chapitre V Update</strong></h2>
+Dans ce chapitre on va parler de requêtes et en faire une simple, dans l'épisode 2, on reviendra sur les NSFetchRequest et NSSortDescriptor plus en détail.
+
+Pour faire un update, on récupère l'objet, on le modifie, et on le commit.
+
+Comment récupère t'on un objet depuis le context ?
+
+On va utiliser NSFetchRequest et le passer à notre context, qui va retourner un  tableau de NSManagedObject, correspondant au critère de recherche de l'objet NSFetchRequest.
+
+Ici on ne spécifie pas d'autres critères que le type d'objet (via le NSEntityDescription) que l'on veux récupérer (équivalent SQL d'un FROM User).
+
+&nbsp;
+<pre lang="objc">NSError *error;
+	NSEntityDescription *entity = [NSEntityDescription entityForName:@"User" inManagedObjectContext:context];
+	NSFetchRequest *fetch = [[NSFetchRequest alloc]init];
+	[fetch setEntity:entity];
+	NSArray *array = [context executeFetchRequest:fetch error:&error];
+	User *user = [array objectAtIndex:0];
+	user.nom = @"titi";
+	[context save:&error];
+</pre>
+&nbsp;
+<h2 style="text-align: center;"><strong>CHAPITRE VI Delete</strong></h2>
+Même principe que l'update, on récupère l'objet mais cette fois si on envoie un message au context avec l'objet pour lui dire de le supprimer.
+
+&nbsp;
+<pre lang="objc">User *user = [array objectAtIndex:0];
+
+	[context deleteObject:user];
+
+	NSError *error;
+	[context save:&error];</pre>
+&nbsp;
+<h2 style="text-align: center;"><strong>CHAPITRE VII Trucs et astuces</strong></h2>
+<strong>iOS 3 et CoreData</strong>
+
+CoreData a été ajouté à l'iOS dans sa version 3. Donc en théorie pas de soucis pour l'utiliser et déployer sur du 3.x.
+
+Sauf que, dans le projet généré par défaut, certaines méthodes de l'appDelegate utilisent des composants iOS 4+ (la gestion des url et la récupération de chemin locaux essentiellement).
+
+Les modifs sont à faire dans le applicationDocumentsDirectory et le persistentStoreCoordinator situé dans l'appDelegate :
+
+<strong>applicationDocumentsDirectory :</strong>
+<pre lang="objc">//on retourne un nsstring et non plus un nsurl
+	- (NSString *)applicationDocumentsDirectory {
+	//old one : [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject];
+	//version compatible iOS 3
+    return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+}</pre>
+<strong>PersistentStoreCoordinator :</strong>
+<pre lang="objc">- (NSPersistentStoreCoordinator *)persistentStoreCoordinator {
+
+    if (persistentStoreCoordinator_ != nil) {
+        return persistentStoreCoordinator_;
+    }
+    // /!\ penser à remplacer nomdelapp par votre nom d'application... /!\
+
+NSString *storePath = [[NSString alloc] initWithFormat:@"%@/%@",[self applicationDocumentsDirectory],@"NOMDELAPP.sqlite"];
+
+//on génère l'url avec la méthode fileUrlWithPath
+	 NSURL *storeURL = [NSURL fileURLWithPath:storePath];
+    NSError *error = nil;
+    persistentStoreCoordinator_ = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
+
+    if (![persistentStoreCoordinator_ addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:nil error:&error]) {
+
+ 	NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
+    abort();
+    }
+
+    return persistentStoreCoordinator_;
+}</pre>
+Ça devrait régler son compte au problème de compatibilité avec iOS 3.
+
+<strong>Core Data et modification du modèle :</strong>
+
+En développement pour gagner du temps, on peut, si un problème se présente pour cause de modifications fréquentes du modèle, supprimer et recréer le persistent store(attention par contre cela entrainera quand même une perte de donnée, pour garder les données il faudra passer par du versioning ou de la configuration à l'initialisation du persistent store).
+
+Dans le persistent store coordinator on peux ajouter cette ligne :
+<pre lang="objc">[[NSFileManager defaultManager] removeItemAtPath:storePath error:nil];
+
+	À ce niveau là :
+
+		if (![persistentStoreCoordinator_ addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:nil error:&error]) {
+
+		//ici -&gt;
+		[[NSFileManager defaultManager] removeItemAtPath:storePath error:nil];
+		//et on recréer le store
+		if (![persistentStoreCoordinator_ addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:storeURL options:nil error:&error]) {
+			NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
+			abort();
+		}</pre>
+Cette méthode est la version iOS 3 compatible de celle commentée dans le persistent store, que je vous recommande de lire malgré la taille. Après être arrivé jusqu'ici, un petit commentaire ne devrais pas poser de problème.
+
+A venir l'épisode 2 sur comment récupérer des objets d'un context de manière plus poussé (NSFetchRequest, NSSortDescriptor, kvc..) .
+<a href="http://bcharp.fr/files/coredataepisodei.zip">En lien le projet avec les exemples.</a>
+Un dernier point pour ceux qui se demanderaient, mais il n'y'a ici rien d'exceptionnel en terme de code, libre à vous d'en faire ce que vous voulez.

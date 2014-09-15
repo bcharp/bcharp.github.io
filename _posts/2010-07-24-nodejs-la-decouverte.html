@@ -1,0 +1,134 @@
+---
+layout: post
+title: Node.js , la découverte.
+tags: Javascript
+categories: Javascript
+---
+
+"Le javascript s'exécute coté client" , première phrase du premier cours/tuto qui commence à remonter à loin, sur du JavaScript. Et bien non pas cette fois. Cette fois on va se la jouer JavaScript coté serveur. "Ho mon dieu quel horreur" peut être la première réaction qui vient à l'esprit, un "pourquoi faire?" est aussi envisageable, pourquoi? C'est simple, depuis des années les navigateurs web font la course aux performances sur l'interprétation du JavaScript, alors quand on met le V8 de chrome sur un serveur qu'on couple le tout avec un serveur web pensé de manière moderne, ça fait mal aux performances, après deux ou trois tests (certes pas vraiment viables puisque je tape dans un soap qui répond plus ou moins, pour récupérer des données), php pleure.
+
+First thing first, le site du projet : <a href="http://nodejs.org/">http://nodejs.org/</a>
+
+Comment on installe, ce node?, comment ça marche? , c'est parti allons y faire un tour.
+<h2>L'install</h2>
+Les sources sont là : <a href="http://nodejs.org/dist/node-v0.1.101.tar.gz" target="_blanck">http://nodejs.org/dist/node-v0.1.101.tar.gz</a> (si vous préférez git : <a href="http://github.com/ry/node" target="_blanck">http://github.com/ry/node</a> )
+Sous linux mac ou solaris l'installe se fait en compilant le paquet (allez dans le dossier en ligne de commande et) :
+
+&gt;	./configure
+
+&gt;	make
+
+&gt;	make install
+
+Une fois que c'est fait on peut utiliser la ligne de commande :
+
+&gt; node nomDeFichier.js
+
+Et c'est là que ça commence à devenir marrant.
+<h2>Mise en place</h2>
+Voilà actuellement un fichier que j'ai appelé node.js dans mon dossier home sur mon mac, et sur lequel j'exécute la commande "node" (&gt; node node.js) :
+<pre lang="javascript">//On charge le module http, et on l'utilise pour créer notre serveur web.
+var http = require('http');
+http.createServer(function (req, res) {
+
+//On utilise l'objet res (response) pour modifier le header, je veux du xml.
+
+res.writeHead(200, {'Content-Type': 'text/xml'});
+
+//On charge un autre module pour gérer des webservices en SOAP(maison celui là, j'y reviendrai plus tard)
+var soapClient = require(&amp;quot;./soap&amp;quot;);
+
+/*
+* parameters like http://localhost:8124/functionName/param
+*/
+//On utilise l'objet url de la request (req) , un petit coup d'expression régulière pour récupérer un nom de fonction et un paramètre comme dans l'url au dessus et les mettre dans des variables.
+var urlreq = req.url.match(/\/(.*)\/(.*)/);
+if(urlreq != null){
+var soapRequest = urlreq[1];
+var soapParam = urlreq[2];
+//On utilise les méthodes du module maison.
+soapClient.setSoapAction(soapRequest).setParam(soapParam).launch(res);
+}else{
+//sinon on affiche quand même un xml d'erreur
+res.write(&amp;quot;&amp;lt;error&amp;gt;&amp;lt;message&amp;gt;No parameters&amp;lt;/message&amp;gt;&amp;lt;/error&amp;gt;&amp;quot;);
+//IMPORTANT si on ne spécifie pas le end(); le serveur va tourner en rond pendant un long moment, le res.end() est effectué par la méthode launch dans le if.
+res.end();
+}
+//le port et l'ip
+}).listen(8124, &amp;quot;127.0.0.1&amp;quot;);
+//Un petit affichage sur la console, pour dire que tout est démarré.
+console.log('Server running at http://127.0.0.1:8124/');</pre>
+Attention aussi après avoir fait une modification dans le fichier il faut couper le serveur (ctrl+c) et refaire la commande "node fichier.js".
+<h2>Les modules</h2>
+Un module c'est un fichier que l'on va appeler avec la fonction require et qui génère un objet (bien plus de détail dans la partie module içi : <a href="http://nodejs.org/api.html">http://nodejs.org/api.html</a> )
+
+Actuellement mon soap.js n'est pas terminé, mais je vais vous en montrer une grande partie quand même :
+<pre lang="javascript">
+//Les paramètres spécifiques au soap:
+var soapAction = '';
+var param = '';
+
+//L'enveloppe et le body du soap (plus d'infos ici : &amp;lt;a taret=&amp;quot;_blanck&amp;quot;  href=&amp;quot;http://www.w3schools.com/soap/soap_body.asp&amp;quot;&amp;gt;http://www.w3schools.com/soap/soap_body.asp&amp;lt;/a&amp;gt; ). Je mets des paramètres comme %@soapAction ou %@param que je remplacerai plus tard par leur vraie valeur.
+
+var body = &amp;quot;&amp;lt;soap:Envelope
+xmlns:soap=&amp;quot;http://www.w3.org/2001/12/soap-envelope&amp;quot;
+soap:encodingStyle=&amp;quot;http://www.w3.org/2001/12/soap-encoding&amp;quot;&amp;gt;&amp;lt;soap:Body&amp;gt;&amp;lt;%@soapAction xmlns='URL'&amp;gt;%@param&amp;lt;/%@soapAction&amp;gt;&amp;lt;/soap:Body&amp;gt;&amp;lt;/soap:Envelope&amp;gt;&amp;quot;;
+
+var format = 'text/xml; charset=utf-8';
+var strHost = 'toto.com';
+var rq = '/toto/?wsdl';
+
+//Ensuite le mot clé exports permet de spécifier ce que mon objet aura comme méthodes publiques (ce que mon module exporte comme fonction, le reste est par défaut privé), je retourne &amp;quot;this&amp;quot; pour pouvoir chainer mes requêtes.
+
+exports.setSoapAction = function(strAction){
+soapAction = strAction;
+return this;
+}
+exports.setParam = function(strParam){
+
+param = strParam;
+return this;
+}
+
+//La méthode qui lance l'appel au serveur soap et qui récupère l'xml
+
+exports.launch = function(res){
+
+//On insère nos paramètres
+body = body.replace(/%@soapAction/gi,soapAction).replace(/%@param/gi,param);
+//On charge un module http
+var http = require('http');
+
+var s = http.createClient(80, strHost);
+
+//On spécifie les paramètres de notre requête et on effectue cette requête
+var request = s.request('POST', rq,
+{'host': strHost,'SOAPAction':soapAction,'Content-Type':format,'Content-Length':body.length});
+// On écrit le contenu de body (alors que notre flux de notre requête est ouvert, du coup on envoie le contenu de body sur le serveur).
+request.write(body);
+//La requête est terminé
+request.end();
+
+//Tout est asynchrone on va donc utiliser des fonctions de callback quand certains événements apparaissent.
+//On effectue une fonction si l'on a une réponse du serveur
+request.on('response', function (response) {
+response.setEncoding('utf8');
+//si on a des données(ou des morceaux de données) on les écrit sur la page
+response.on('data', function (chunk) {
+res.write(chunk);
+});
+//Si la requête est terminée
+response.on('end' ,function(){
+//On signifie qu'on termine la réponse.
+res.end();
+});
+});
+}</pre>
+Mon module ne respecte sans doute pas certaines bonnes pratiques, je me suis lancé dedans sans vraiment aller voir la liste des modules existants ( <a href="http://wiki.github.com/ry/node/modules" target="_blanck">http://wiki.github.com/ry/node/modules</a> ), le but étant de tester rapidement une fonctionnalité.
+
+Pourquoi pas en php ?
+Sur 100 appels consécutifs avec node je tournais autour de 80ms, avec php(5.3.2 standard) sur apache 260ms (ces chiffres sont approximatifs je reviens vite avec des tests plus précis et rigoureux).
+
+Pourquoi récupérer un xml en soap et l'afficher? Pour l'instant le seul avantage est que mon app cliente n'a plus à gérer la connexion au soap, ce qui est quand même un grand soulagement... Parser un xml et renvoyer seulement certaines informations qui intéressent mon app est ma prochaine tâche sur ma todo.
+
+En réalité non, j'ai d'abord quelques améliorations à faire sur mon app iPhone... Et la préparation de plusieurs podcasts qui prend un temps beaucoup plus long que ce que j'aurais cru au premier abord... Ceci dit l'article sur l'outline view façon iCal arrivera assez vite, j'ai refait tout le code de manière <del datetime="2010-07-23T23:37:43+00:00">propre</del> optimisée, il ne reste plus qu'à écrire les explications en essayant de rester le plus clair possible...

@@ -1,0 +1,210 @@
+---
+layout: post
+title: KVC, Key Value Coding in Cocoa
+tags: objc
+categories: objc
+---
+
+Quand je parle de KVC on me regarde avec de grands yeux, quand je dis KVO on me dit à t'es souhait. Du coup, il était temps.
+
+(a noter que l'article sur KVO arrive rapidement)
+
+<strong>KVC</strong>
+
+KVC = Key-Value Coding.
+
+Au début c'est surtout une erreur.
+
+<strong>*** Terminating app due to uncaught exception 'NSUnknownKeyException', reason: '[&lt;Users 0x4d4d7a0&gt; setValue:forUndefinedKey:]: the entity Users is not key value coding-compliant for the key "toto".'</strong>
+
+
+Ici j'essaie de setter une variable qui n'existe pas, ma classe est considérée comme n'étant pas Key value coding-compliant, d'où cette erreur. Mais c'est quoi Key-value coding compliant ? Simplement que ma classe répond bien via des méthodes de type set&lt;Key&gt; ou &lt;Key&gt; ;
+
+Concrètement la base de l'utilisation du KVC c'est ses getters/setters. J'ai un NSString *name; une @property de définis. Je peux donc setter ma valeur comme ceci :
+<pre lang="objc">
+[self setName:@"thename"]; (ou self.name = @"thename";)
+</pre>
+
+La beauté première du kvc, c'est que cette syntaxe permet aussi de setter comme si mon objet était un NSDictionary :
+<pre lang="objc">
+[self setValue:@"thename" forKey:@"name"];
+</pre>
+Sans supplément de code.
+
+Quel intérêt, c'est vachement plus long ?
+
+La généricité que permet cette ligne moi ça m'épate. Rien qu'à partir de ça, on peut déjà imaginer setter nos objets à l'aide de dictionnaires, qui comporteraient nos clés, nos valeurs, permettant de sérialiser nos objets dans de larges dictionnaires, sans avoir énormément de code. Apple y a pensé :
+
+<pre lang="objc">
+NSDictionary *dico = [self dictionaryWithValuesForKeys:arrayOfKeys];
+
+[self setValuesForKeysWithDictionary:dico];
+</pre>
+
+À partir de là, on à de grande chance de pouvoir stocker notre dico dans un NSUserDefault, sans plus de code que ça (oui une ligne).
+
+Alors bien sur, on peut préférer faire boucler notre dictionnaire et tester si le sélecteur existe bien, respondToSelector permet la manip :
+
+<pre lang="objc">
+for (NSString *key in [dico allKeys]) {
+    if ([object respondsToSelector:NSSelectorFromString(key)]) {
+        [object setValue:[dico objectForKey:key] forKey:key];
+    }
+}
+</pre>
+
+Deuxième effet bonux, quand on travail avec des webservices rest ou autres(mais les autres on n’en parlera pas, j'ai des souvenirs de SOAP traumatisant), le parseur renvoi des dictionnaires avec des clés, qui idéalement correspondent aux attributs de l'objet.
+
+Cela permet une boucle assez simple pour remplir notre base (coreData si possible, j'y reviendrai).
+
+Petits soucis, les valeurs seront souvent en NSString, et là on aurait tendance à partir sur du code glue pour nos NSDate ou NSNumber, pas très réutilisables alors que jusque-là tout le reste l'est. KVC permet aussi d'utiliser des méthodes de validation :
+
+<pre lang="objc">-(BOOL)validateValue:error:</pre>
+
+Au début j'ai pensé que ça retournez directement mon objet, voir l'ajouter, une fois un traitement effectué, malheureusement NON, c'est un tout petit peu plus compliqué que ça.
+
+La méthode renvoi YES ou NO en fonction que le format est bon ou pas. Ou plutôt en fonction qu'on lui dit que le format est bon ou pas. Un exemple d'utilisation ajouter à ce qui a déjà été montré :
+
+<strong>validateValue:forKey:error</strong>
+
+<pre lang="objc">
+for (NSString *key in [dico allKeys]) {
+
+    if ([object respondsToSelector:NSSelectorFromString(key)]) {
+
+        NSError *error;
+
+        id value = [dico objectForKey:key];
+
+        if ([object validateValue:&value forKey:key error:&error]) {
+
+            [object setValue:[dico objectForKey:key] forKey:key];
+        }
+    }
+}
+</pre>
+
+OK, mais comment je lui dis que le format est bon ou pas ?
+
+Cette méthode va allez chercher les méthodes avec la nomenclature telle que ci-dessous dans notre objet :
+
+<pre>- (BOOL)validate&lt;Key&gt;: error:</pre>
+
+Par étapes :
+
+On passe un pointeur vers l'objet que l'on compte insérer et on retourne YES ou NO.
+
+On retourne YES si l'objet est au bon format, ou si on peut le modifier de manière à ce qu'il le devienne, typiquement sur une valeur de date, si mon objet est un NSString j'utiliserai un dateFormatter.
+
+/!\ Attention /!\ si aucune méthode n'a la nomenclature validate&lt;Key&gt; n'est trouvé YES sera retourné. On peut donc avoir un contrôle sur ce qui est inséré, et vérifier que tout est au bon format, en ayant une architecture la plus réutilisable possible de nos objet. Exemple pour la date avec une property dateOfBirth :
+
+<pre lang="objc">
+- (BOOL)validateDateOfBirth:(id *)value error:(NSError **)error
+{
+    if (*value == nil) {
+
+        if (error != NULL) {
+
+            NSString *errorString = @"validation: nil value error";
+
+            NSDictionary *userInfoDict = [NSDictionary dictionaryWithObject:errorString forKey:NSLocalizedDescriptionKey];
+            *error = [[[NSError alloc] initWithDomain:@"UsersDomain" code:101 userInfo:userInfoDict] autorelease];
+        }
+
+        return NO;
+    }
+
+    if ([*value isKindOfClass:[NSDate class]])
+    {
+        return YES;
+    }
+
+    if ([*value isKindOfClass:[NSString class]]) {
+
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+
+        NSDate *date = [dateFormatter dateFromString:value];
+
+        *value = date;
+
+        return YES;
+
+    }
+
+    if (error != NULL) {
+
+        NSString *errorString = @"validation: auther data type error";
+
+        NSDictionary *userInfoDict =[NSDictionary dictionaryWithObject:errorString forKey:NSLocalizedDescriptionKey];
+
+        *error = [[[NSError alloc] initWithDomain:@"UsersDomain" code:102 userInfo:userInfoDict] autorelease];
+    }
+
+    return NO;
+}
+</pre>
+
+(on remarque le id*, pointeur vers mon objet)
+
+Quand j'ai découvert ça, mon utilisation des webservices s’est trouvée énormément simplifiée.
+
+Mais ce n’est pas fini.
+
+<strong>Le KeyPath</strong>
+
+C'est ça qui ma fait aimer le KVC, plus que la généricité.
+
+C'est totalement subjectif, mais le temps que ça peut faire gagner est énorme.
+
+On peut spécifier des "chemins", exemple :
+
+Un objet User, à une propriété name (NSString) et un âge (NSNumber)
+
+Un objet arrayOfUser de type NSArray contient un ensemble d'objet User.
+
+<pre lang="objc">
+NSArray *nameArray = [arrayOfUser valueForKeyPath:@"name"];
+</pre>
+Retournera un NSArray avec tous les attributs name de tout les User.
+
+OK ?
+
+On peut appliquer des méthodes...
+<pre lang="objc">[arrayOfUser valueForKeyPath:@"@avg.age"];</pre>
+Retournera la moyenne des âges.
+
+Plein d'autres méthodes : @sum, @max, @min ...
+
+Et si j'ai un NSDictionary avec une clé "users", qui contient mon arrayOfUser. Trop facile.
+
+<pre lang="objc">
+[dico valueForKeyPath:@"users.name"];
+
+[dico valueForKeyPath:@"users.@avg.age"];
+</pre>
+
+Un autre array operator génial (non je n'ai pas peur des mots), est
+
+<pre lang="objc">@distinctUnionOfObjects</pre>
+
+Retourne un tableau d'objet distinct, par exemple :
+
+<pre lang="objc">
+NSArray *nameArray = [dico valueForKeyPath:@"@distinctUnionOfObjects.name"];
+</pre>
+
+Retourne un tableau de NSString contenant les attributs name distinct.
+
+Petits soucis le tableau n'est pas ordonné.
+
+Comme on a affaire à des NSString on peut utiliser un selector existant.
+
+<pre lang="objc">
+NSArray *orderedArray = [nameArray sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+</pre>
+
+Et notre tableau de nom unique est trié par ordre alphabétique.
+
+Deux lignes aux lieux d'une boucle et des tests...
+
+Voila pour un aperçu du KVC, il reste des points que je n'ai pas abordés comme undefinedValueForKey, la création d'array operator custom, et sans doute d'autres que je ne connais pas encore. À suivre donc ;).

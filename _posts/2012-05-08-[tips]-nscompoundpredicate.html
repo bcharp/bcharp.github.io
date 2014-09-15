@@ -1,0 +1,57 @@
+---
+layout: post
+title: 'NSCompoundPredicate'
+tags: tips
+---
+
+Un tips, c’est court, peu détaillé, et présente une fonctionnalité.
+
+NSCompoundPredicate c’est une classe enfant de NSPredicate et qui comme son nom l’indique, permet de les combiner.
+
+<h3>C’est utile pour :</h3>
+<ul>
+<li>les NSPredicate qui s’enchaine/s’inverse (tout les livres dont l’auteur est J.K Rowling et tout sauf les livres de J.K Rowling).</li>
+<li>les NSPredicate à rallonges (“xxx OR xxx AND xxx OR xxx AND xxx”)</li>
+</ul>
+On va prendre un exemple d’un tableau de 300 objets, 100 avec la clé name à john, 100 avec Timmy, 100 avec Troll.
+Pour créer le tableau j’utilise du keypath (cf http://www.bcharp.fr/2011/05/kvc-key-value-coding/).
+Pas de release, c’est de l’ARC.
+
+<pre lang="objc">NSArray *johnObjects = [BCDemoObject dummyObjectsWithName:@"John" date:nil objects:nil]; //create 100 dummy objects
+    NSArray *timmyObjects = [BCDemoObject dummyObjectsWithName:@"Timmy" date:nil objects:nil]; // create 100 dummy objects
+    NSArray *trollObjects = [BCDemoObject dummyObjectsWithName:@"Troll" date:nil objects:nil]; // create 100 dummy objects
+
+    NSArray *arrayOfObjects = [NSArray arrayWithObjects:johnObjects,timmyObjects,trollObjects, nil];
+
+    NSArray *allObjects = [arrayOfObjects valueForKeyPath:@"@unionOfArrays.self"]; //my object containing all dummy objects
+
+    assert([allObjects count] == (NSUInteger)300);</pre>
+On va commencer par crée un NSPredicate simple sur le nom John.
+<pre lang="objc"> //John Predicate
+    NSPredicate *johnPredicate = [NSPredicate predicateWithFormat:@"name LIKE 'John'"];
+    NSArray *johnArray = [allObjects filteredArrayUsingPredicate:johnPredicate];
+    assert([johnArray count] == (NSUInteger)100);</pre>
+Un pour Timmy
+<pre lang="objc"> //timmy predicate
+    NSPredicate *timmyPredicate = [NSPredicate predicateWithFormat:@"name LIKE 'Timmy'"];
+    NSArray *timmyArray = [allObjects filteredArrayUsingPredicate:timmyPredicate];
+    assert([timmyArray count] == (NSUInteger)100);</pre>
+Pour créer un NSPredicate qui retourne timmy ou john je peux écrire le format @”name LIKE 'John' OR name LIKE 'Timmy'” c’est assez court, mais ça implique beaucoup de texte, pas facilement débuggable, et si je dois changer ‘Timmy’ en ‘Tommy’ dans le futur, changer chaque NSPredicate ça va m’ennerver (nb je pourrais faire des constantes).
+C’est là qu’on peut faire des NSCompoundPredicate :
+
+In a nutshell, je crée un NSPredicate spécial de type OR (NSORPredicateType) et je lui donne mes 2 autres NSPredicate en tant que “subpredicate ».
+<pre lang="objc">//timmy or john
+    NSCompoundPredicate *timmyOrJohnPredicate = [[NSCompoundPredicate alloc] initWithType:NSOrPredicateType subpredicates:[NSArray arrayWithObjects:johnPredicate,timmyPredicate, nil]];
+
+NSArray *timmyOrJohnArray = [allObjects filteredArrayUsingPredicate:timmyOrJohnPredicate];
+    assert([timmyOrJohnArray count] == (NSUInteger)200);</pre>
+Je peux évidemment repasser mon NSCompoundPredicate en subpredicate pour l’inverser :
+<pre lang="objc">//not timmy, not john
+    NSCompoundPredicate *notTimmyOrJohnPredicate = [[NSCompoundPredicate alloc] initWithType:NSNotPredicateType subpredicates:[NSArray arrayWithObject:timmyOrJohnPredicate]];
+
+    NSArray *notTimmyOrJohnArray = [allObjects filteredArrayUsingPredicate:notTimmyOrJohnPredicate];
+    assert([notTimmyOrJohnArray count] == (NSUInteger)100);</pre>
+
+<h3>Résumé :</h3>
+
+NSCompoundPredicate permet de combiner des NSPredicate de différente manière, il est simple à utiliser, évite les strings à rallonge complexe à débugger ou les constantes.

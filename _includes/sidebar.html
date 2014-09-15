@@ -26,8 +26,17 @@
         {% endif %}
       {% endfor %}
 
-      <a class="sidebar-nav-item" href="{{ site.github.repo }}/archive/v{{ site.version }}.zip">Download</a>
-      <a class="sidebar-nav-item" href="{{ site.github.repo }}">GitHub project</a>
+      <a class="sidebar-nav-item" href="{{ site.github }}">GitHub</a>
+      <a class="sidebar-nav-item" href="{{ site.linkedin }}">CV</a>
+
+      <ul>
+      {% for category in site.categories %}
+
+        <li><a href="/categories/{{ category[0] }}.html">{{ category[0] }}</a></li>
+
+      {% endfor %}
+      </ul>
+
       <span class="sidebar-nav-item">Currently v{{ site.version }}</span>
     </nav>
 
