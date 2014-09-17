@@ -26,9 +26,7 @@
         {% endif %}
       {% endfor %}
 
-      <a class="sidebar-nav-item" href="{{ site.github }}">GitHub</a>
-      <a class="sidebar-nav-item" href="{{ site.linkedin }}">CV</a>
-
+      <span style="color:#fff">Categories : </span> 
       <ul>
       {% for category in site.categories %}
 
@@ -36,6 +34,10 @@
 
       {% endfor %}
       </ul>
+
+      <br />
+      <a class="sidebar-nav-item" href="{{ site.github }}">My GitHub</a>
+      <a class="sidebar-nav-item" href="{{ site.linkedin }}">My Resume</a>
 
       <span class="sidebar-nav-item">Currently v{{ site.version }}</span>
     </nav>
